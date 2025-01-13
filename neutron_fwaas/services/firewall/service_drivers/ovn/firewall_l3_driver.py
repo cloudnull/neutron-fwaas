@@ -102,18 +102,22 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
                 if rule_id:
                     # For specify rule id
                     if rule_id == rule['id']:
+                        LOG.debug("KT POC -- Starting Rule %s process for PG Name %s with id %s", rule, pg_name, rule_id)
                         ovn_acl.process_rule_for_pg(self._nb_ovn, txn,
                                                     pg_name, rule, dir,
                                                     op=ovn_const.OP_ADD)
+                        LOG.debug("KT POC -- Rule %s processed for PG Name %s with id %s", rule, pg_name, rule_id)
                         LOG.info("Successfully enable rule %(rule)s to "
                                  "firewall_group %(fwg)s",
                                  {"rule": rule_id,
                                   "fwg": fwg_id})
                         break
                 else:
+                    LOG.debug("KT POC -- Starting Rule %s process for PG Name %s", rule, pg_name)
                     ovn_acl.process_rule_for_pg(self._nb_ovn, txn, pg_name,
                                                 rule, dir,
                                                 op=ovn_const.OP_ADD)
+                    LOG.debug("KT POC -- Rule %s processed for PG Name %s", rule, pg_name)
         LOG.info("Successfully added rules for firewall_group %s",
                  fwg_id)
 
@@ -122,14 +126,21 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
 
         Delete all rule acls but remain the default acls
         """
+        LOG.debug("KT POC -- This is firewall group id %s", fwg_id)
         pg_name = ovn_utils.ovn_port_group_name(fwg_id)
+        LOG.debug("KT POC -- This is the PG Name %s", pg_name)
         default_acls = ovn_acl.get_default_acls_for_pg(self._nb_ovn, pg_name)
+        LOG.debug("KT POC -- This is the default ACLs %s", default_acls)
         if len(default_acls) == ovn_const.DEFAULT_ACL_NUM:
+            LOG.debug("KT POC -- Starting to add transaction")
             txn.add(self._nb_ovn.db_set(
                 'Port_Group', pg_name,
                 ('acls', default_acls)))
+            LOG.debug("KT POC -- Transaction added")
         else:
+            LOG.debug("KT POC -- Starting to add default ACLs")
             ovn_acl.add_default_acls_for_pg(self._nb_ovn, txn, pg_name)
+            LOG.debug("KT POC -- Added default ACLS")
         LOG.info("Successfully clear rules for firewall_group %s",
                  fwg_id)
 
@@ -244,6 +255,7 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
 
     def update_firewall_group_postcommit(self, context, old_firewall_group,
                                          new_firewall_group):
+        LOG.debug("KT POC -- Enterint POST COMMIT")
         if new_firewall_group['status'] != const.PENDING_UPDATE:
             return
         old_ports = set(old_firewall_group['ports'])
@@ -253,6 +265,7 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
         old_eg_policy = old_firewall_group['egress_firewall_policy_id']
         new_eg_policy = new_firewall_group['egress_firewall_policy_id']
         pg_name = ovn_utils.ovn_port_group_name(new_firewall_group['id'])
+        LOG.debug("KT POC -- Starting process for PG Name %s", pg_name)
 
         # We except it would be active
         # If no ports, set it to inactive
@@ -264,6 +277,7 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
 
         # If port_group is not exist, recreate it,
         # add acls and ports.
+        LOG.debug("KT POC -- Starting get port for PG Name %s", pg_name)
         if not self._nb_ovn.get_port_group(pg_name):
             with self._nb_ovn.transaction(check_error=True) as txn:
                 self._init_firewall_group(txn, new_firewall_group['id'])
@@ -292,6 +306,7 @@ class OVNFwaasDriver(driver_api.FirewallDriverDB):
                         self._add_rules_for_firewall_group(
                             context, txn, new_firewall_group['id'])
 
+        LOG.debug("KT POC -- Updating FW Group for fw id %s", new_firewall_group['id'])
         self.firewall_db.update_firewall_group_status(
             context, new_firewall_group['id'],
             new_firewall_group['status'])
